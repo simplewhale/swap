@@ -1,9 +1,9 @@
 /// Uniswap v2 like token swap program
-module pancake::swap_utils {
+module equity::swap_utils {
     use std::string;
     use aptos_std::type_info;
     use aptos_std::comparator;
-    use pancake::math;
+    use equity::math;
 
 
     const EQUAL: u8 = 0;

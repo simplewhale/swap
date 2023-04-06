@@ -1,8 +1,8 @@
-module pancake::router {
-    use pancake::swap;
+module equity::router {
+    use equity::swap;
     use std::signer;
     use aptos_framework::coin;
-    use pancake::swap_utils;
+    use equity::swap_utils;
 
     //
     // Errors.

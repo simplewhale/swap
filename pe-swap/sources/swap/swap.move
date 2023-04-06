@@ -1,5 +1,5 @@
 /// Uniswap v2 like token swap program
-module pancake::swap {
+module equity::swap {
     use std::signer;
     use std::option;
     use std::string;
@@ -12,15 +12,15 @@ module pancake::swap {
     use aptos_framework::resource_account;
     use aptos_framework::code;
 
-    use pancake::math;
-    use pancake::swap_utils;
-    use pancake::u256;
+    use equity::math;
+    use equity::swap_utils;
+    use equity::u256;
 
-    friend pancake::router;
+    friend equity::router;
 
     const ZERO_ACCOUNT: address = @zero;
     const DEFAULT_ADMIN: address = @default_admin;
-    const RESOURCE_ACCOUNT: address = @pancake;
+    const RESOURCE_ACCOUNT: address = @equity;
     const DEV: address = @dev;
     const MINIMUM_LIQUIDITY: u128 = 1000;
     const MAX_COIN_NAME_LENGTH: u64 = 32;
@@ -158,7 +158,7 @@ module pancake::swap {
         let swap_info = borrow_global_mut<SwapInfo>(RESOURCE_ACCOUNT);
         let resource_signer = account::create_signer_with_capability(&swap_info.signer_cap);
 
-        let lp_name: string::String = string::utf8(b"Pancake-");
+        let lp_name: string::String = string::utf8(b"Equity-");
         let name_x = coin::symbol<X>();
         let name_y = coin::symbol<Y>();
         string::append(&mut lp_name, name_x);
@@ -166,14 +166,14 @@ module pancake::swap {
         string::append(&mut lp_name, name_y);
         string::append_utf8(&mut lp_name, b"-LP");
         if (string::length(&lp_name) > MAX_COIN_NAME_LENGTH) {
-            lp_name = string::utf8(b"Pancake LPs");
+            lp_name = string::utf8(b"Equity LPs");
         };
 
         // now we init the LP token
         let (burn_cap, freeze_cap, mint_cap) = coin::initialize<LPToken<X, Y>>(
             &resource_signer,
             lp_name,
-            string::utf8(b"Cake-LP"),
+            string::utf8(b"Equity-LP"),
             8,
             true
         );
