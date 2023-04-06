@@ -8,7 +8,7 @@ Aptos CLI
 
 1. Initialize your aptos account
 ```shell
-$ ~/bin/aptos  init
+$ aptos  init
 ```
 you will get a ".aptos" folder in your current folder.
 ```shell
@@ -85,7 +85,9 @@ $ aptos move compile
 ```shell
 $ aptos move publish
 ```
-
+9. test
+```shell
 aptos move run \
 --function-id 0xda44ad58b07fe0c84e91b9f9c972b24e0509fb533b478dd065c56a6f9556cea3::swap::set_fee_to \
 --args address:0x2b182aee326ed9060d9301e6a478a985bd801dc3cb3b316c61e4b09e59150d1b
+```
