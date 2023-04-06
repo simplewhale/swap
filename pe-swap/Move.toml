@@ -1,0 +1,14 @@
+[package]
+name = 'pe-swap'
+version = '1.0.0'
+
+[dependencies]
+AptosFramework = {git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework/", rev = "mainnet"}
+AptosStdlib = {git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-stdlib/", rev = "mainnet"}
+
+[addresses]
+pancake = "da44ad58b07fe0c84e91b9f9c972b24e0509fb533b478dd065c56a6f9556cea3"
+dev = "b5c6377cff5c79081c8dda1fcb8f10b04c7da600d3e75ad003bd3b834557c194"
+zero = "0000000000000000000000000000000000000000000000000000000000000000"
+default_admin = "2b182aee326ed9060d9301e6a478a985bd801dc3cb3b316c61e4b09e59150d1b"
+test_coin = "0x16"
