@@ -8,7 +8,7 @@ Aptos CLI
 
 1. Initialize your aptos account
 ```shell
-$ ~/bin/aptos  init
+$ aptos  init
 ```
 you will get a ".aptos" folder in your current folder.
 ```shell
