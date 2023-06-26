@@ -19,6 +19,10 @@ module equity::router {
     /// Pair is not created
     const E_PAIR_NOT_CREATED: u64 = 4;
 
+    const E_ADDRESS_NOT_WHITE_X: u64 = 5;
+
+     const E_ADDRESS_NOT_WHITE_Y: u64 = 6;
+
     /// Create a Pair from 2 Coins
     /// Should revert if the pair is already created
     public entry fun create_pair<X, Y>(
@@ -55,6 +59,9 @@ module equity::router {
         swapN : u8,
     ) {
         if (!(swap::is_pair_created<X, Y>() || swap::is_pair_created<Y, X>())) {
+            let sender_address = signer::address_of(sender);
+            assert!(swap::isWhite<X>(sender_address) || swap::isWhiteCoin<X>(), E_ADDRESS_NOT_WHITE_X);
+            assert!(swap::isWhite<Y>(sender_address) || swap::isWhiteCoin<Y>(), E_ADDRESS_NOT_WHITE_Y);
             create_pair<X, Y>(sender,swapN);  
         };
         let amount_x;

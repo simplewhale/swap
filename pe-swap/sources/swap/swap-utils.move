@@ -15,24 +15,9 @@ module equity::swap_utils {
     const ERROR_INSUFFICIENT_AMOUNT: u64 = 2;
     const ERROR_INSUFFICIENT_OUTPOT_AMOUNT: u64 = 3;
     const ERROR_SAME_COIN: u64 = 4;
+    const MAX_U64: u128 = 18446744073709551615;
+    const MAX_U32: u128 = 4294967296;
 
-    /**
-      * @dev Compute the largest integer smaller than or equal to the square root of `n`
-    */
-    public fun floorSqrt(n: u128):u128 {
-        if (n > 0) {
-            let x = n / 2 + 1;
-            let y = (x + n / x) / 2;
-            while (x > y) {
-                x = y;
-                y = (x + n / x) / 2;
-            };
-            x
-        }else{
-            0
-        }
-        
-    }
 
    public fun gcd(a: u8,b: u8):u8 {
         while (b > 0) {
@@ -42,7 +27,8 @@ module equity::swap_utils {
         };
         a
     }
-        
+    
+    #[view]
     public fun exp(n: u128,a: u8,b: u8):u128{
         let g = gcd(a,b);
         a = a/g;
@@ -50,13 +36,13 @@ module equity::swap_utils {
         if(a ==b){
             n
         }else if(a == 1 && b == 2){
-             floorSqrt(n * math::pow(2,64))
+             math::sqrt(n * MAX_U64)
         }else if (a == 2 && b == 1) {
-            n * n /  math::pow(2 ,64)
+            n * n / MAX_U64
         }else if (a == 4 && b ==1) {
-            n * n /  math::pow(2 ,32) * n /  math::pow(2 ,32) * n /  math::pow(2 ,64)
+            n * n / MAX_U32 * n /  MAX_U32 * n /  MAX_U64
         }else if (b == 4 && a ==1) {
-            floorSqrt(floorSqrt(n *  math::pow(2 ,64)) *  math::pow(2 ,32))
+            math::sqrt( math::sqrt(n *  MAX_U64) *  MAX_U32)
         }else{
             n
         }
@@ -75,7 +61,7 @@ module equity::swap_utils {
         let denominator = (reserve_in as u128) * 1000u128 + amount_in_with_fee;
         ((numerator / denominator) as u64)
     }*/
-
+    #[view]
      public fun get_amount_out(
         amount_in: u64,
         reserve_in: u64,

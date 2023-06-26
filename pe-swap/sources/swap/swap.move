@@ -5,6 +5,8 @@ module equity::swap {
     use std::string;
     use aptos_std::type_info;
     use aptos_std::event;
+    use aptos_std::simple_map;
+    use std::string::String;
 
     use aptos_framework::coin;
     use aptos_framework::timestamp;
@@ -17,6 +19,7 @@ module equity::swap {
     use equity::u256;
 
     friend equity::router;
+    friend equity::commerceNft;
 
     const ZERO_ACCOUNT: address = @zero;
     const DEFAULT_ADMIN: address = @default_admin;
@@ -92,6 +95,14 @@ module equity::swap {
         pair_created: event::EventHandle<PairCreatedEvent>
     }
 
+    struct WhiteList has key {
+       map : simple_map::SimpleMap<address, simple_map::SimpleMap<String, u8>>,
+    }
+
+    struct WhiteCoin has key {
+       map : simple_map::SimpleMap<String, bool>,
+    }
+
     struct PairCreatedEvent has drop, store {
         user: address,
         token_x: string::String,
@@ -145,6 +156,14 @@ module equity::swap {
             fee_to: ZERO_ACCOUNT,
             admin: DEFAULT_ADMIN,
             pair_created: account::new_event_handle<PairCreatedEvent>(&resource_signer),
+        });
+
+        move_to(sender, WhiteList{
+            map : simple_map::create<address,simple_map::SimpleMap<String,u8>>(),
+        });
+
+         move_to(sender, WhiteCoin{
+            map : simple_map::create<String, bool>(),
         });
     }
 
@@ -297,7 +316,7 @@ module equity::swap {
         sender: &signer,
         amount_x: u64,
         amount_y: u64
-    ): (u64, u64, u64) acquires TokenPairReserve, TokenPairMetadata, PairEventHolder {
+    ): (u64, u64, u64) acquires TokenPairReserve, TokenPairMetadata, PairEventHolder{
         let (a_x, a_y, coin_lp, fee_amount, coin_left_x, coin_left_y) = add_liquidity_direct(coin::withdraw<X>(sender, amount_x), coin::withdraw<Y>(sender, amount_y));
         let sender_addr = signer::address_of(sender);
         let lp_amount = coin::value(&coin_lp);
@@ -528,7 +547,7 @@ module equity::swap {
     ): (coin::Coin<X>, coin::Coin<Y>) acquires TokenPairReserve, TokenPairMetadata {
         let amount_in = coin::value<Y>(&coins_in);
         deposit_y<X, Y>(coins_in);
-        let (rout, rin,expA,expB, _) = token_reserves<X, Y>();
+        let (rout, rin, expB, expA, _) = token_reserves<X, Y>();
         let amount_out = swap_utils::get_amount_out(amount_in, rin, rout,expA,expB);
         let (coins_x_out, coins_y_out) = swap<X, Y>(amount_out, 0);
         assert!(coin::value<Y>(&coins_y_out) == 0, ERROR_INSUFFICIENT_OUTPUT_AMOUNT);
@@ -597,7 +616,7 @@ module equity::swap {
         let amount_x = (balance_x as u128) - (reserves.reserve_x as u128);
         let amount_y = (balance_y as u128) - (reserves.reserve_y as u128);
 
-        let fee_amount = mint_fee<X, Y>(reserves.reserve_x, reserves.reserve_y, metadata);
+        let fee_amount = mint_fee<X, Y>(reserves.reserve_x, reserves.reserve_y, reserves.exponent0, reserves.exponent1, metadata);
 
         //Need to add fee amount which have not been mint.
         let total_supply = total_lp_supply<X, Y>();
@@ -619,7 +638,7 @@ module equity::swap {
 
         update<X, Y>(balance_x, balance_y, reserves);
 
-        metadata.k_last = (reserves.reserve_x as u128) * (reserves.reserve_y as u128);
+        metadata.k_last = swap_utils::exp((reserves.reserve_x as u128), reserves.exponent0, 100) * swap_utils::exp((reserves.reserve_y as u128), reserves.exponent1, 100);
 
         (lp, fee_amount)
     }
@@ -630,7 +649,7 @@ module equity::swap {
         let reserves = borrow_global_mut<TokenPairReserve<X, Y>>(RESOURCE_ACCOUNT);
         let liquidity = coin::value(&lp_tokens);
 
-        let fee_amount = mint_fee<X, Y>(reserves.reserve_x, reserves.reserve_y, metadata);
+        let fee_amount = mint_fee<X, Y>(reserves.reserve_x, reserves.reserve_y, reserves.exponent0, reserves.exponent1, metadata);
 
         //Need to add fee amount which have not been mint.
         let total_lp_supply = total_lp_supply<X, Y>();
@@ -645,7 +664,7 @@ module equity::swap {
 
         update(coin::value(&metadata.balance_x), coin::value(&metadata.balance_y), reserves);
 
-        metadata.k_last = (reserves.reserve_x as u128) * (reserves.reserve_y as u128);
+        metadata.k_last = swap_utils::exp((reserves.reserve_x as u128), reserves.exponent0, 100) * swap_utils::exp((reserves.reserve_y as u128), reserves.exponent1, 100);
 
         (w_x, w_y, fee_amount)
     }
@@ -697,10 +716,10 @@ module equity::swap {
         coin::extract(&mut metadata.balance_y, amount)
     }
 
-    fun mint_fee<X, Y>(reserve_x: u64, reserve_y: u64, metadata: &mut TokenPairMetadata<X, Y>): u64 {
+    fun mint_fee<X, Y>(reserve_x: u64, reserve_y: u64, exponent0: u8, exponent1: u8, metadata: &mut TokenPairMetadata<X, Y>): u64 {
         let fee = 0u64;
         if (metadata.k_last != 0) {
-            let root_k = math::sqrt((reserve_x as u128) * (reserve_y as u128));
+            let root_k = math::sqrt(swap_utils::exp((reserve_x as u128), exponent0, 100) * swap_utils::exp((reserve_y as u128), exponent1, 100));
             let root_k_last = math::sqrt(metadata.k_last);
             if (root_k > root_k_last) {
                 let feeToWeight = 30u128;
@@ -718,6 +737,70 @@ module equity::swap {
         };
 
         fee
+    }
+
+    public fun isWhiteCoin<T>():bool acquires WhiteCoin{
+        let white_coin = borrow_global<WhiteCoin>(RESOURCE_ACCOUNT);
+        let coin_type = type_info::type_name<T>();
+        if(!simple_map::contains_key<String, bool>(&white_coin.map, &coin_type)){
+            return false
+        };
+        true
+    }
+
+    public fun isWhite<T>(white_address: address):bool acquires WhiteList{
+        let white_list = borrow_global<WhiteList>(RESOURCE_ACCOUNT);
+        if(!simple_map::contains_key<address,simple_map::SimpleMap<String,u8>>(&white_list.map, &white_address)){
+            return false
+        };
+        let map1 = simple_map::borrow<address,simple_map::SimpleMap<String,u8>>(&white_list.map, &white_address);
+        let coin_type = type_info::type_name<T>();
+        if(!simple_map::contains_key<String,u8>(map1, &coin_type)){
+            return false
+        };  
+        *simple_map::borrow<String,u8>(map1, &coin_type) == 1
+    }
+
+    public entry fun set_white_coin<T>(sender: &signer ) acquires SwapInfo ,WhiteCoin{
+        let sender_addr = signer::address_of(sender);
+        let swap_info = borrow_global<SwapInfo>(RESOURCE_ACCOUNT);
+        assert!(sender_addr == swap_info.admin, ERROR_NOT_ADMIN);
+
+        let white_coin = borrow_global_mut<WhiteCoin>(RESOURCE_ACCOUNT);
+        let coin_type = type_info::type_name<T>();
+        if(simple_map::contains_key<String, bool>(&white_coin.map, &coin_type)){
+            
+            *simple_map::borrow_mut<String, bool>(&mut white_coin.map, &coin_type) = true;
+           
+        }else{
+           
+            simple_map::add(&mut white_coin.map, coin_type, true);
+
+        }; 
+    }
+
+    public entry fun set_white<T>(sender: &signer, white_address: address) acquires SwapInfo ,WhiteList{
+        let sender_addr = signer::address_of(sender);
+        let swap_info = borrow_global<SwapInfo>(RESOURCE_ACCOUNT);
+        assert!(sender_addr == swap_info.admin, ERROR_NOT_ADMIN);
+
+        let white_list = borrow_global_mut<WhiteList>(RESOURCE_ACCOUNT);
+        if(simple_map::contains_key<address,simple_map::SimpleMap<String,u8>>(&white_list.map, &white_address)){
+            let map1 = simple_map::borrow_mut<address,simple_map::SimpleMap<String,u8>>(&mut white_list.map, &white_address);
+            let coin_type = type_info::type_name<T>();
+            if(simple_map::contains_key<String,u8>(map1, &coin_type)){
+                *simple_map::borrow_mut<String,u8>(map1, &coin_type) = 1;
+            }else{
+                simple_map::add(map1, coin_type, 1);
+            }
+        }else{
+           let sm = simple_map::create<String,u8>();
+           simple_map::add(&mut white_list.map, white_address, sm); 
+           let map1 = simple_map::borrow_mut<address,simple_map::SimpleMap<String,u8>>(&mut white_list.map, &white_address);
+           let coin_type = type_info::type_name<T>();
+           simple_map::add(map1, coin_type, 1);
+
+        }; 
     }
 
     public entry fun set_admin(sender: &signer, new_admin: address) acquires SwapInfo {
